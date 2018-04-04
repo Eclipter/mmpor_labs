@@ -1,8 +1,9 @@
+#!/usr/bin/env python
 from bisect import bisect_left
 import json
 
 import numpy as np
-from ortools.graph import pywrapgraph
+from scipy.optimize import linear_sum_assignment
 
 
 def main():
@@ -14,28 +15,16 @@ def main():
         .repeat(data['groups'], axis=0)
         .repeat(data['tasks'], axis=1)
     )
-    assignment = pywrapgraph.LinearSumAssignment()
-    for (i, j), cost in np.ndenumerate(costs):
-        assignment.AddArcWithCost(i, j, int(cost))
 
-    solve_status = assignment.Solve()
-    if solve_status == assignment.OPTIMAL:
-        print(f'Total efficiency: {-assignment.OptimalCost()}')
-        print()
+    row_ind, col_ind = linear_sum_assignment(costs)
 
-        for i in range(assignment.NumNodes()):
-            task = assignment.RightMate(i)
-            efficiency = -assignment.AssignmentCost(i)
-            worker_group = bisect_left(np.cumsum(data['groups']) - 1, i)
-            work_group = bisect_left(np.cumsum(data['tasks']) - 1, task)
-            print(f'Worker from group {worker_group} assigned to task group {work_group}, efficiency: {efficiency}')
+    print(f'Total efficiency: {-costs[row_ind, col_ind].sum()}')
 
-
-    elif solve_status == assignment.INFEASIBLE:
-        print('Assignment is impossible')
-
-    elif solve_status == assignment.POSSIBLE_OVERFLOW:
-        print('Possible overflow')
+    for i in range(len(row_ind)):
+        worker_group = bisect_left(np.cumsum(data['groups']) - 1, row_ind[i])
+        work_group = bisect_left(np.cumsum(data['tasks']) - 1, col_ind[i])
+        print(f'Worker from group {worker_group} assigned to task group {work_group}, '
+              f'efficiency: {-costs[row_ind[i], col_ind[i]]}')
 
 
 if __name__ == '__main__':
